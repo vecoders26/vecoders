@@ -80,16 +80,15 @@ function validate(body, event) {
   }
 }
 
-// Sequential, human-readable IDs (REG-2026-001). The _id doubles as a uniqueness
-// lock: create() fails if another request claimed the same number, so we retry.
+// Plain ascending registration numbers (1, 2, 3, …) shared across all events. The _id doubles
+// as a uniqueness lock: create() fails if another request claimed the same number, so we retry
+// and the next read sees that number as taken.
 async function createRegistration(value) {
-  const year = new Date().getFullYear();
   for (let attempt = 0; attempt < 5; attempt++) {
-    const count = await registrationsClient.fetch(
-      'count(*[_type == "registration" && string::startsWith(registrationId, $prefix)])',
-      { prefix: `REG-${year}-` },
+    const last = await registrationsClient.fetch(
+      '*[_type == "registration" && defined(registrationId)] | order(registrationId desc)[0].registrationId',
     );
-    const registrationId = `REG-${year}-${String(count + 1 + attempt).padStart(3, '0')}`;
+    const registrationId = (Number(last) || 0) + 1;
     try {
       return await registrationsClient.create({
         _id: `registration-${registrationId}`,
@@ -103,7 +102,7 @@ async function createRegistration(value) {
       if (err.statusCode !== 409) throw err;
     }
   }
-  throw new Error('Could not allocate a registration ID');
+  throw new Error('Could not allocate a registration number');
 }
 
 // Sanity holds the canonical copy, so a Sheets failure is logged rather than shown to the user.
@@ -131,7 +130,7 @@ export default async function handler(req, res) {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
 
   // Honeypot: real users never see or fill this field.
-  if (body.website) return res.status(200).json({ id: 'REG-OK' });
+  if (body.website) return res.status(200).json({ id: 0 });
 
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
   if (rateLimited(ip)) {

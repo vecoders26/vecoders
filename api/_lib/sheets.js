@@ -7,18 +7,43 @@ const TIMEOUT_MS = 8000;
 
 export const sheetsConfigured = Boolean(GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_SECRET);
 
-const MEMBER_COLUMNS = ['Name', 'Register No', 'Email', 'Phone', 'Department', 'Year'];
+// One row per team member; the team columns repeat on each of that team's rows,
+// so the sheet can be sorted and filtered by team or by person.
+export const SHEET_HEADERS = [
+  'Registration No',
+  'Registered At',
+  'Event',
+  'Team Name',
+  'Team Size',
+  'Role',
+  'Name',
+  'Register No',
+  'Email',
+  'Phone',
+  'Department',
+  'Year',
+];
 
-export function sheetHeaders(memberSlots) {
-  const headers = ['Registration ID', 'Registered At', 'Event', 'Team Name', 'Team Size'];
-  for (let i = 1; i <= memberSlots; i++) MEMBER_COLUMNS.forEach((c) => headers.push(`Member ${i} ${c}`));
-  return headers;
+// Registrations come from an Indian college, so show times in IST, e.g. "22 Oct 2026, 8:02 PM".
+const timeFormat = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+});
+
+export function formatRegisteredAt(iso) {
+  return timeFormat.format(new Date(iso)).replace(/\b(am|pm)\b/, (m) => m.toUpperCase());
 }
 
-// Sheets treats a leading = + - @ as a formula; prefix ' so submitted text stays text.
+// The script writes plain-text cells, so "+91 …" phones stay as typed. A leading = can still
+// become a formula through the API, so prefix ' to keep submitted text as text.
 function cell(value) {
   const s = value == null ? '' : String(value);
-  return /^[=+\-@]/.test(s) ? `'${s}` : s;
+  return s.startsWith('=') ? `'${s}` : s;
 }
 
 async function callScript(payload) {
@@ -40,7 +65,7 @@ export async function createEventSheet(event) {
   const { id, url } = await callScript({
     action: 'createSheet',
     title: event.name,
-    headers: sheetHeaders(event.maxTeamSize || 3),
+    headers: SHEET_HEADERS,
   });
   // Also patch an open draft, otherwise publishing it later would drop the link.
   const ids = [event._id];
@@ -56,13 +81,15 @@ export async function createEventSheet(event) {
 
 export async function appendRegistration(sheetId, registration) {
   const { members } = registration;
-  const row = [
+  const team = [
     registration.registrationId,
-    registration.registeredAt,
+    formatRegisteredAt(registration.registeredAt),
     registration.event,
     registration.teamName,
     members.length,
   ];
-  members.forEach((m) => row.push(m.name, m.registerNumber, m.email, m.phone, m.department, m.year));
-  await callScript({ action: 'appendRow', id: sheetId, row: row.map(cell), headers: sheetHeaders(members.length) });
+  const rows = members.map((m) =>
+    [...team, m.role, m.name, m.registerNumber, m.email, m.phone, m.department, m.year].map(cell),
+  );
+  await callScript({ action: 'appendRows', id: sheetId, rows, headers: SHEET_HEADERS });
 }

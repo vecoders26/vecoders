@@ -29,7 +29,7 @@ function csvCell(value) {
 // One row per team, with a block of columns for each member slot.
 function toCsv(list) {
   const slots = Math.max(1, ...list.map((r) => r.members?.length || 0));
-  const headers = ['Registration ID', 'Event', 'Team Name', 'Date', 'Status', 'Total Members'];
+  const headers = ['Registration No', 'Event', 'Team Name', 'Date', 'Status', 'Total Members'];
   for (let i = 1; i <= slots; i++) MEMBER_FIELDS.forEach(([, label]) => headers.push(`Member ${i} ${label}`));
 
   const rows = list.map((r) => {

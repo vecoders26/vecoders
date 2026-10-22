@@ -10,7 +10,7 @@ export const registration = defineType({
   type: 'document',
   icon: UsersIcon,
   fields: [
-    defineField({ name: 'registrationId', title: 'Registration ID', type: 'string', readOnly: true }),
+    defineField({ name: 'registrationId', title: 'Registration no.', type: 'number', readOnly: true }),
     defineField({ name: 'event', type: 'string', readOnly: true }),
     defineField({ name: 'eventSlug', title: 'Event slug', type: 'string', readOnly: true }),
     defineField({ name: 'eventId', title: 'Event ID', type: 'string', readOnly: true, hidden: true }),
@@ -45,9 +45,12 @@ export const registration = defineType({
       ],
     }),
   ],
-  orderings: [{ title: 'Newest', name: 'registeredAtDesc', by: [{ field: 'registeredAt', direction: 'desc' }] }],
+  orderings: [
+    { title: 'Newest', name: 'registeredAtDesc', by: [{ field: 'registeredAt', direction: 'desc' }] },
+    { title: 'Registration no.', name: 'registrationIdAsc', by: [{ field: 'registrationId', direction: 'asc' }] },
+  ],
   preview: {
     select: { id: 'registrationId', team: 'teamName', status: 'status', event: 'event' },
-    prepare: ({ id, team, status, event }) => ({ title: team, subtitle: `${id} · ${event || 'General'} · ${status}` }),
+    prepare: ({ id, team, status, event }) => ({ title: team, subtitle: `#${id} · ${event || 'General'} · ${status}` }),
   },
 });
