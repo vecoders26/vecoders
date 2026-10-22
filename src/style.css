@@ -2198,7 +2198,7 @@ img {
 
 .blogs-page__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr));
     gap: 30px;
 }
 
@@ -2271,11 +2271,11 @@ img {
 
 .blogs-page__card-front-title {
     position: absolute;
-    bottom: 16px;
-    left: 16px;
-    right: 16px;
+    bottom: 18px;
+    left: 20px;
+    right: 20px;
     font-family: var(--font-heading);
-    font-size: 1.15rem;
+    font-size: 1.3rem;
     font-weight: 600;
     color: var(--white);
     z-index: 2;
@@ -2316,7 +2316,7 @@ img {
 .blogs-page__card-back-inner {
     position: relative;
     z-index: 1;
-    padding: 20px 22px;
+    padding: 24px 26px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -2324,13 +2324,13 @@ img {
 
 .blogs-page__card-back-inner h4 {
     font-family: var(--font-heading);
-    font-size: 1.1rem;
+    font-size: 1.3rem;
     color: var(--cream);
     margin-bottom: 8px;
 }
 
 .blogs-page__card-back-inner p {
-    font-size: 0.88rem;
+    font-size: 0.95rem;
     color: rgba(255, 255, 255, 0.85);
     line-height: 1.55;
     display: -webkit-box;
@@ -2393,7 +2393,8 @@ img {
     position: sticky;
     top: 12px;
     float: right;
-    margin: 12px 12px 0 0;
+    /* Negative bottom margin: the button floats over the image instead of pushing it down. */
+    margin: 12px 12px -48px 0;
     z-index: 2;
     width: 36px;
     height: 36px;
@@ -2414,7 +2415,6 @@ img {
     width: 100%;
     aspect-ratio: 16 / 9;
     object-fit: cover;
-    margin-top: -48px;
 }
 
 .blog-reader__body {
