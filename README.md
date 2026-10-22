@@ -94,3 +94,5 @@ The link appears on the event in Studio under the **Google Sheet** tab. A regist
 2. Add the environment variables above.
 3. Add the production domain as a CORS origin: sanity.io/manage → API → CORS origins (credentials off).
 4. Create the Sanity webhook described under [Google Sheets](#google-sheets).
+
+# deployement by @geniusjoelraj
