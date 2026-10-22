@@ -83,6 +83,8 @@ function validate(body, event) {
 // Plain ascending registration numbers (1, 2, 3, …) shared across all events. The _id doubles
 // as a uniqueness lock: create() fails if another request claimed the same number, so we retry
 // and the next read sees that number as taken.
+// The dot in the _id matters: a public dataset only serves dot-free IDs to unauthenticated
+// requests, so registrations stay private even though the dataset is public (Sanity free plan).
 async function createRegistration(value) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const last = await registrationsClient.fetch(
@@ -91,7 +93,7 @@ async function createRegistration(value) {
     const registrationId = (Number(last) || 0) + 1;
     try {
       return await registrationsClient.create({
-        _id: `registration-${registrationId}`,
+        _id: `registration.${registrationId}`,
         _type: 'registration',
         registrationId,
         registeredAt: new Date().toISOString(),

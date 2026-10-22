@@ -1,4 +1,5 @@
 import { sanity } from './sanityClient';
+import { DEFAULT_FAQS, DEFAULT_PATRONS, DEFAULT_SETTINGS, DEFAULT_TIMELINE } from './defaults';
 
 // GROQ projections return the camelCase shape the pages already use.
 const IMAGE = 'coalesce(image.asset->url + "?w=1200&auto=format", imageUrl)';
@@ -45,26 +46,37 @@ const ACHIEVEMENTS_QUERY = `*[_type == "achievement"] | order(_createdAt desc){
 
 const SETTINGS_QUERY = `*[_id == "siteSettings"][0]{
   announcementActive, announcementText, registrationsOpen, maintenanceMode,
-  totalMembersCount, totalProjectsCount, totalHackathonsCount, totalWorkshopsCount
+  "stats": stats[]{value, label},
+  legacyTitle, legacyDescription,
+  aboutHeroLine1, aboutHeroLine2, aboutIntro, aboutBentoHeadline, aboutBentoSubline,
+  contactEmail, addressLines, socialLinks
 }`;
 
-const DEFAULT_SETTINGS = {
-  announcementActive: false,
-  announcementText: '',
-  registrationsOpen: true,
-  maintenanceMode: false,
-  totalMembersCount: '500+',
-  totalProjectsCount: '120+',
-  totalHackathonsCount: '25+',
-  totalWorkshopsCount: '80+',
-};
+const FAQS_QUERY = `*[_type == "faq"] | order(coalesce(order, 999) asc, _createdAt asc){
+  "id": _id, question, answer
+}`;
+
+const PATRONS_QUERY = `*[_type == "patron"] | order(coalesce(order, 999) asc, _createdAt asc){
+  "id": _id, name, role, "photo": photo.asset->url + "?w=600&auto=format"
+}`;
+
+const TIMELINE_QUERY = `*[_type == "timelineEntry"] | order(year desc){
+  "id": _id, year, title, description, themeColor, tags,
+  president{name, role, title, "photo": photo.asset->url + "?w=800&auto=format"}
+}`;
 
 async function fetchList(query, label) {
+  return (await fetchListOr(query, label, [])) || [];
+}
+
+// Like fetchList, but falls back to the original hardcoded content if Sanity is unreachable.
+// An empty result is respected: if editors delete every FAQ, the section is empty.
+async function fetchListOr(query, label, fallback) {
   try {
     return (await sanity.fetch(query)) || [];
   } catch (error) {
     console.error(`${label} error:`, error);
-    return [];
+    return fallback;
   }
 }
 
@@ -99,6 +111,18 @@ export const Store = {
 
   getOpenEvents() {
     return fetchList(OPEN_EVENTS_QUERY, 'getOpenEvents');
+  },
+
+  getFaqs() {
+    return fetchListOr(FAQS_QUERY, 'getFaqs', DEFAULT_FAQS);
+  },
+
+  getPatrons() {
+    return fetchListOr(PATRONS_QUERY, 'getPatrons', DEFAULT_PATRONS);
+  },
+
+  getTimeline() {
+    return fetchListOr(TIMELINE_QUERY, 'getTimeline', DEFAULT_TIMELINE);
   },
 
   getAchievements() {

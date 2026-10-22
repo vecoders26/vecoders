@@ -5,11 +5,15 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { Store } from '../data/store';
+import { useSettings } from '../data/settingsContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function Home() {
   const [openFaq, setOpenFaq] = useState(null);
+  const [faqs, setFaqs] = useState([]);
+  const { stats = [], legacyTitle, legacyDescription } = useSettings();
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== 'undefined' && (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024))
   );
@@ -438,14 +442,6 @@ export default function Home() {
         opacity: 1,
         scale: 1,
       });
-      gsap.to('.legacy__stat', {
-        scrollTrigger: { trigger: '.legacy', start: 'top 80%' },
-        opacity: 1,
-        y: 0,
-        stagger: 0.1,
-        duration: 0.7,
-        ease: 'power2.out',
-      });
 
       // FAQ Section
       gsap.to('#faqTitle', {
@@ -454,6 +450,35 @@ export default function Home() {
         y: 0,
         duration: 0.8,
       });
+    });
+
+    return () => ctx.revert();
+  }, []);
+
+  useEffect(() => {
+    Store.getFaqs().then(setFaqs);
+  }, []);
+
+  // Stats and FAQs come from Sanity after mount, and both start hidden in CSS, so their reveal
+  // tweens are (re)built whenever that content changes. A mount-only tween would miss them.
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.to('.legacy__stat', {
+        scrollTrigger: { trigger: '.legacy', start: 'top 80%' },
+        opacity: 1,
+        y: 0,
+        stagger: 0.1,
+        duration: 0.7,
+        ease: 'power2.out',
+      });
+    });
+    ScrollTrigger.refresh();
+    return () => ctx.revert();
+  }, [stats]);
+
+  useEffect(() => {
+    if (!faqs.length) return;
+    const ctx = gsap.context(() => {
       gsap.to('.faq__item', {
         scrollTrigger: { trigger: '.faq', start: 'top 80%' },
         opacity: 1,
@@ -462,48 +487,13 @@ export default function Home() {
         duration: 0.6,
       });
     });
-
+    ScrollTrigger.refresh();
     return () => ctx.revert();
-  }, []);
+  }, [faqs]);
 
   const toggleFaq = (index) => {
     setOpenFaq(openFaq === index ? null : index);
   };
-
-  const faqItems = [
-    {
-      q: 'What is VECODERS?',
-      a: 'VECODERS is the official technical club of Valliammai Engineering College, dedicated to fostering innovation, technical excellence, and collaborative learning among students across all engineering disciplines.',
-    },
-    {
-      q: 'Who can join VECODERS?',
-      a: 'Any student from Valliammai Engineering College can join, regardless of year or department. From web development and AI to cybersecurity and design — there is a domain for everyone.',
-    },
-    {
-      q: 'What kind of events does VECODERS organize?',
-      a: 'We organize hackathons, coding competitions, workshops, tech talks, project showcases, and inter-college events covering AI/ML, full-stack development, cloud computing, UI/UX design, and more.',
-    },
-    {
-      q: 'How do I register?',
-      a: 'Click the "Register" button at the top of the page to fill out our membership form. You will receive a confirmation email with details about upcoming events, domain selection, and your onboarding session.',
-    },
-    {
-      q: 'Is there any membership fee?',
-      a: 'VECODERS operates on a minimal membership model. The annual fee is nominal and ensures access to all workshops, mentorship sessions, project teams, and exclusive events throughout the year.',
-    },
-    {
-      q: 'What domains does VECODERS cover?',
-      a: 'Web Development, Mobile Development, AI & Machine Learning, Cybersecurity, Cloud & DevOps, UI/UX Design, Competitive Programming, and IoT & Embedded Systems.',
-    },
-    {
-      q: 'Can I participate in multiple domain teams?',
-      a: 'Yes! We encourage cross-domain exploration. You can be part of multiple teams and contribute to projects across different technology domains simultaneously.',
-    },
-    {
-      q: 'What is the last date for registration?',
-      a: 'Registration is open year-round. However, early registration gives you priority access to workshops, mentorship programs, and project team placements.',
-    },
-  ];
 
   return (
     <div className="home-page">
@@ -674,38 +664,15 @@ export default function Home() {
               <canvas className="legacy__3d-canvas" ref={legacyCanvasRef} id="legacyCanvas" />
             </div>
             <div className="legacy__text">
-              <h2 className="legacy__title" id="legacyTitle">Our Legacy</h2>
-              <p className="legacy__desc" id="legacyDesc">
-                From humble beginnings to becoming a beacon of innovation and excellence,
-                our journey is woven with passion, perseverance, and purpose. Over the years,
-                each generation has carried forward the torch — enriching traditions, embracing
-                change, and inspiring new milestones.
-              </p>
+              <h2 className="legacy__title" id="legacyTitle">{legacyTitle}</h2>
+              <p className="legacy__desc" id="legacyDesc">{legacyDescription}</p>
               <div className="legacy__stats" id="legacyStats" ref={statsContainerRef}>
-                <div className="legacy__stat">
-                  <div className="legacy__stat-number">5+</div>
-                  <div className="legacy__stat-label">Years</div>
-                </div>
-                <div className="legacy__stat">
-                  <div className="legacy__stat-number">500+</div>
-                  <div className="legacy__stat-label">Members</div>
-                </div>
-                <div className="legacy__stat">
-                  <div className="legacy__stat-number">120+</div>
-                  <div className="legacy__stat-label">Projects</div>
-                </div>
-                <div className="legacy__stat">
-                  <div className="legacy__stat-number">25+</div>
-                  <div className="legacy__stat-label">Hackathons</div>
-                </div>
-                <div className="legacy__stat">
-                  <div className="legacy__stat-number">80+</div>
-                  <div className="legacy__stat-label">Workshops</div>
-                </div>
-                <div className="legacy__stat">
-                  <div className="legacy__stat-number">50+</div>
-                  <div className="legacy__stat-label">Achievements</div>
-                </div>
+                {stats.map((stat, i) => (
+                  <div className="legacy__stat" key={i}>
+                    <div className="legacy__stat-number">{stat.value}</div>
+                    <div className="legacy__stat-label">{stat.label}</div>
+                  </div>
+                ))}
               </div>
               <div style={{ marginTop: '32px' }}>
                 <Link to="/timeline" className="btn-primary">Explore our Timeline</Link>
@@ -721,43 +688,38 @@ export default function Home() {
           <h2 className="faq__title" id="faqTitle">Frequently Asked Questions</h2>
 
           <div className="faq__list" id="faqList">
-            {faqItems.map((item, index) => {
-              const isOpen = openFaq === index;
-              return (
-                <div className={`faq__item ${isOpen ? 'active' : ''}`} key={index}>
-                  <button
-                    className="faq__question"
-                    aria-expanded={isOpen}
-                    onClick={() => toggleFaq(index)}
-                  >
-                    <span>{item.q}</span>
-                    <svg
-                      className="faq__chevron"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <div
-                    className="faq__answer"
-                    style={{
-                      maxHeight: isOpen ? '200px' : '0px',
-                      transition: 'max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                    }}
-                  >
-                    <div className="faq__answer-inner">{item.a}</div>
-                  </div>
-                </div>
-              );
-            })}
+            {faqs.map((item, index) => (
+              <FaqItem key={item.id} item={item} isOpen={openFaq === index} onToggle={() => toggleFaq(index)} />
+            ))}
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function FaqItem({ item, isOpen, onToggle }) {
+  return (
+    <div className={`faq__item ${isOpen ? 'active' : ''}`}>
+      <button className="faq__question" aria-expanded={isOpen} onClick={onToggle}>
+        <span>{item.question}</span>
+        <svg
+          className="faq__chevron"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div className="faq__answer">
+        <div className="faq__answer-clip">
+          <div className="faq__answer-inner">{item.answer}</div>
+        </div>
+      </div>
     </div>
   );
 }

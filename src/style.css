@@ -1203,10 +1203,20 @@ img {
     color: var(--orange);
 }
 
+/* Animating grid rows from 0fr to 1fr opens to the answer's natural height, however long. */
 .faq__answer {
-    max-height: 0;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.4s var(--ease-out);
+}
+
+.faq__item.active .faq__answer {
+    grid-template-rows: 1fr;
+}
+
+.faq__answer-clip {
+    min-height: 0;
     overflow: hidden;
-    transition: max-height 0.4s var(--ease-out);
 }
 
 .faq__answer-inner {
@@ -1330,7 +1340,8 @@ img {
     gap: 10px;
 }
 
-.footer__col-links li a {
+.footer__col-links li a,
+.footer__col-links li span {
     font-size: 0.88rem;
     color: var(--text-muted);
     transition: color 0.3s;
@@ -1740,6 +1751,14 @@ img {
     inset: 0;
     background: var(--gradient-brand);
     opacity: 0.15;
+}
+
+.about-patrons__card-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .about-patrons__card-info {

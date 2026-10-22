@@ -59,8 +59,25 @@ With `GOOGLE_SCRIPT_URL` empty, registrations are still saved to Sanity and the 
 
 Admins sign in to Sanity Studio with their Sanity account. Invite people at sanity.io/manage → Members.
 
-- **VECODERS Content** workspace: blogs, events, achievements, and the **Site Settings** singleton (announcement banner, registrations open/closed, homepage stats).
-- **Registrations (private)** workspace: review submissions, change status, and use the **Export CSV** tool.
+- **VECODERS Content** workspace:
+  - **Site Settings**, in tabs:
+    - **Site:** announcement banner, registrations open/closed.
+    - **Stats:** the numbers shown in the Home "Our Legacy" section and on the About page.
+    - **Home: Legacy:** that section's title and text.
+    - **About page:** hero lines, intro paragraph and stats-grid text.
+    - **Footer:** contact email, address and social links. Leave a link empty to hide its icon.
+  - **Blogs, events and achievements.**
+  - **Timeline year**, **Patron** and **FAQ**: the Timeline page, the About page patrons, and the Home FAQ. Patrons and FAQs are sorted by their *Display order* number.
+- **Registrations** workspace: review submissions, change status, and use the **Export CSV** tool.
+
+If Sanity can't be reached, the site falls back to the original content in `src/data/defaults.js`.
+To load that content into a fresh dataset, run `node --env-file=.env scripts/seed-content.mjs`. It only creates what's missing and never overwrites edits.
+
+### Why registrations are private on the free plan
+Sanity's free plan has no private datasets. When the Growth trial ends, private datasets become public. A public dataset never serves documents whose `_id` contains a dot to unauthenticated requests (drafts rely on the same rule), so registrations are stored as `registration.<n>`.
+- They stay readable only with a token or a Studio login.
+- Never create registrations with dot-free IDs.
+- `scripts/migrate-registration-ids.mjs` moves any old `registration-<n>` documents over.
 
 Deploy the Studio with `npm --prefix studio run deploy`.
 

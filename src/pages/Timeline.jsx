@@ -1,13 +1,27 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { renderGlowLetters } from '../components/GlowText';
+import { Store } from '../data/store';
 
 gsap.registerPlugin(ScrollTrigger);
+
+// "#EF6522" -> "rgba(239, 101, 34, 0.25)" for the card's ambient glow.
+function glowFrom(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  if (!m) return 'rgba(239, 101, 34, 0.25)';
+  const [r, g, b] = m.slice(1).map((h) => parseInt(h, 16));
+  return `rgba(${r}, ${g}, ${b}, 0.25)`;
+}
 
 export default function Timeline() {
   const trackRef = useRef(null);
   const pinWrapRef = useRef(null);
+  const [entries, setEntries] = useState([]);
+
+  useEffect(() => {
+    Store.getTimeline().then(setEntries);
+  }, []);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -17,7 +31,16 @@ export default function Timeline() {
         { opacity: 0, y: 40 },
         { opacity: 1, y: 0, duration: 1.2, ease: 'power3.out', delay: 0.2 }
       );
+    });
 
+    return () => ctx.revert();
+  }, []);
+
+  // The horizontal scroll measures the track width when created, so build it only after the
+  // timeline entries from Sanity have rendered, and rebuild if they change.
+  useEffect(() => {
+    if (!entries.length) return;
+    const ctx = gsap.context(() => {
       // Horizontal Timeline Scroll
       const track = trackRef.current;
       const pinWrap = pinWrapRef.current;
@@ -54,68 +77,9 @@ export default function Timeline() {
         );
       }
     });
-
+    ScrollTrigger.refresh();
     return () => ctx.revert();
-  }, []);
-
-  const timelineYears = [
-    {
-      year: '2026',
-      title: 'The Apex Year',
-      desc: "Under the leadership of Current President Abishek.R, VECODERS scales to unprecedented heights with national-level hackathons, 36+ active members, enterprise alliances, and a fully revamped digital ecosystem. Code Arena stands as the college's marquee tech battleground.",
-      themeColor: '#EF6522',
-      glowColor: 'rgba(239, 101, 34, 0.25)',
-      president: {
-        name: 'Abishek.R',
-        role: 'Current President',
-        title: 'Current President of VECODERS',
-        image: '/current president.png',
-      },
-      tags: ['Current Leadership', '500+ Members', 'National Hackathons', 'Code Arena'],
-    },
-    {
-      year: '2025',
-      title: 'Scaling Innovation',
-      desc: 'Spearheaded by Third President Sanjaikumar K, VECODERS launched the specialized AI/ML vertical, hosted premier inter-college hackathons with 30+ teams, and established cutting-edge cloud computing workshops with industry alliances.',
-      themeColor: '#06b6d4',
-      glowColor: 'rgba(6, 182, 212, 0.25)',
-      president: {
-        name: 'Sanjaikumar K',
-        role: 'Third President',
-        title: '3rd President of VECODERS',
-        image: '/thirdpresident.jpeg',
-      },
-      tags: ['Third President', 'AI/ML Vertical', 'Inter-College Hackathons', 'Cloud Workshops'],
-    },
-    {
-      year: '2024',
-      title: 'Building Momentum',
-      desc: 'Under the tenure of Second President Kogulmurugaiah, the official web portal was born and domain-based specialization teams were introduced across Web Dev, AI, Cybersecurity, and Design, growing the community to 20+ active developers.',
-      themeColor: '#10b981',
-      glowColor: 'rgba(16, 185, 129, 0.25)',
-      president: {
-        name: 'Kogulmurugaiah',
-        role: 'Second President',
-        title: '2nd President of VECODERS',
-        image: '/second president.png',
-      },
-      tags: ['Second President', 'Domain Teams', 'Web Platform', '200+ Coders'],
-    },
-    {
-      year: '2023',
-      title: 'The First Spark',
-      desc: 'Founded and ignited under First President Vasanthakumar.VK, VECODERS took its historic initial steps: launching foundational bootcamps, creating the official GitHub organization, and onboarding the pioneering cohort of 80 tech enthusiasts.',
-      themeColor: '#a855f7',
-      glowColor: 'rgba(168, 85, 247, 0.25)',
-      president: {
-        name: 'Vasanthakumar.VK',
-        role: 'First President',
-        title: '1st President of VECODERS',
-        image: '/first president.jpeg',
-      },
-      tags: ['First President', 'Foundation & Ignition', 'GitHub Org', '80 Pioneers'],
-    },
-  ];
+  }, [entries]);
 
   return (
     <div className="timeline-page">
@@ -151,12 +115,16 @@ export default function Timeline() {
       <section className="timeline-scroll" id="timelineScroll">
         <div className="timeline-scroll__pin-wrap" id="timelinePinWrap" ref={pinWrapRef}>
           <div className="timeline-scroll__track" id="timelineTrack" ref={trackRef}>
-            {timelineYears.map((item) => (
-              <div className="timeline-scroll__year" data-year={item.year} key={item.year}>
+            {entries.map((item) => {
+              const president = item.president || {};
+              // Sanity image URLs are already encoded; local /public fallbacks contain spaces.
+              const photo = president.photo?.startsWith('/') ? encodeURI(president.photo) : president.photo;
+              return (
+              <div className="timeline-scroll__year" data-year={item.year} key={item.id}>
                 <div className="timeline-card" style={{ '--card-theme': item.themeColor }}>
                   <div
                     className="timeline-card__ambient-glow"
-                    style={{ background: item.glowColor }}
+                    style={{ background: glowFrom(item.themeColor) }}
                   />
 
                   {/* Left Column: Milestone Narrative */}
@@ -164,17 +132,17 @@ export default function Timeline() {
                     <div className="timeline-card__header">
                       <div className="timeline-card__year-badge">{item.year}</div>
                       <span className="timeline-card__role-pill">
-                        {item.president.role}
+                        {president.role}
                       </span>
                     </div>
 
                     <div className="timeline-card__text-block">
                       <h3 className="timeline-card__title">{item.title}</h3>
-                      <p className="timeline-card__desc">{item.desc}</p>
+                      <p className="timeline-card__desc">{item.description}</p>
                     </div>
 
                     <div className="timeline-card__tags">
-                      {item.tags.map((tag, idx) => (
+                      {(item.tags || []).map((tag, idx) => (
                         <span className="timeline-card__tag" key={idx}>
                           {tag}
                         </span>
@@ -187,27 +155,30 @@ export default function Timeline() {
                     <div className="timeline-leader__frame">
                       <div
                         className="timeline-leader__glow"
-                        style={{ background: item.glowColor }}
+                        style={{ background: glowFrom(item.themeColor) }}
                       />
-                      <img
-                        src={encodeURI(item.president.image)}
-                        alt={`${item.president.name} - ${item.president.title}`}
-                        className="timeline-leader__img"
-                        loading="lazy"
-                      />
+                      {photo && (
+                        <img
+                          src={photo}
+                          alt={`${president.name} - ${president.title}`}
+                          className="timeline-leader__img"
+                          loading="lazy"
+                        />
+                      )}
                       <div className="timeline-leader__gradient-overlay" />
                       <div className="timeline-leader__info">
                         <span className="timeline-leader__badge">
-                          {item.president.role}
+                          {president.role}
                         </span>
-                        <h4 className="timeline-leader__name">{item.president.name}</h4>
-                        <p className="timeline-leader__title">{item.president.title}</p>
+                        <h4 className="timeline-leader__name">{president.name}</h4>
+                        <p className="timeline-leader__title">{president.title}</p>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
