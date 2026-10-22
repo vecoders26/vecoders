@@ -1,16 +1,61 @@
-# React + Vite
+# VECODERS
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Club website: a Vite + React SPA with [Sanity](https://www.sanity.io) as the backend.
 
-Currently, two official plugins are available:
+```
+Browser (SPA) ──read, no token──▶ Sanity dataset "production" (public)
+      │                            blog, event, achievement, siteSettings
+      └── POST /api/register ──▶ Vercel function (holds SANITY_WRITE_TOKEN)
+                                   └──▶ Sanity dataset "registrations" (private)
+Admins ──▶ Sanity Studio (studio/) — content + registrations + CSV export
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Setup
 
-## React Compiler
+Requires Node 22.12+.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+cp .env.example .env               # fill in values (see below)
+cp studio/.env.example studio/.env
+npm install
+npm --prefix studio install
+```
 
-## Expanding the Oxlint configuration
+### Environment variables
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+| Variable | Where it's used | Secret? |
+|---|---|---|
+| `VITE_SANITY_PROJECT_ID`, `VITE_SANITY_DATASET`, `VITE_SANITY_API_VERSION` | Browser bundle (read-only queries) | No |
+| `VITE_STUDIO_URL` | `/admin` redirect and the Admin button | No |
+| `SANITY_PROJECT_ID`, `SANITY_CONTENT_DATASET`, `SANITY_REGISTRATIONS_DATASET`, `SANITY_API_VERSION` | `api/register.js` | No |
+| `SANITY_WRITE_TOKEN` | `api/register.js` only | **Yes** |
+| `SANITY_STUDIO_*` | `studio/` | No |
+
+Rules:
+- **Never** put a token in a `VITE_*` variable. Vite inlines those into public JavaScript.
+- `.env` files are gitignored; only `.env.example` files are committed.
+- Create tokens at sanity.io/manage → project → API → Tokens. Use an **Editor** token for `SANITY_WRITE_TOKEN`, and rotate it if it ever leaks.
+- In production, set the same variables in Vercel → Project → Settings → Environment Variables.
+
+## Development
+
+```bash
+npx vercel dev       # SPA + /api/register (needed to test registration)
+npm run dev          # SPA only — reading content works, registration does not
+npm --prefix studio run dev   # Studio at http://localhost:3333
+```
+
+## Content management
+
+Admins sign in to Sanity Studio with their Sanity account. Invite people at sanity.io/manage → Members.
+
+- **VECODERS Content** workspace: blogs, events, achievements, and the **Site Settings** singleton (announcement banner, registrations open/closed, homepage stats).
+- **Registrations (private)** workspace: review submissions, change status, and use the **Export CSV** tool.
+
+Deploy the Studio with `npm --prefix studio run deploy`.
+
+## Deployment (Vercel)
+
+1. Import the repo into Vercel (Vite framework preset).
+2. Add the environment variables above.
+3. Add the production domain as a CORS origin: sanity.io/manage → API → CORS origins (credentials off).

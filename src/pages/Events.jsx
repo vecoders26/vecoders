@@ -17,9 +17,6 @@ export default function Events() {
 
   useEffect(() => {
     fetchEvents();
-    const handleUpdate = () => fetchEvents();
-    window.addEventListener('vecoders_store_update', handleUpdate);
-    return () => window.removeEventListener('vecoders_store_update', handleUpdate);
   }, []);
 
   const filteredEvents = useMemo(() => {

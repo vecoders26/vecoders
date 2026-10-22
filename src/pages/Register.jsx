@@ -19,6 +19,7 @@ export default function Register() {
 
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
   const [settings, setSettings] = useState({
     registrationsOpen: true,
   });
@@ -89,14 +90,18 @@ export default function Register() {
     }
     setLoading(true);
 
-    // Save to Supabase via Store
-    await Store.addRegistration({
-      teamName: teamName.trim() || (members[0] && members[0].name ? `${members[0].name}'s Team` : 'Team Alpha'),
-      members: members,
-    });
-
-    setLoading(false);
-    setSubmitted(true);
+    try {
+      await Store.addRegistration({
+        teamName: teamName.trim() || (members[0] && members[0].name ? `${members[0].name}'s Team` : 'Team Alpha'),
+        members: members,
+        website: honeypot,
+      });
+      setSubmitted(true);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -212,6 +217,17 @@ export default function Register() {
               boxShadow: 'var(--inset-border)',
             }}
           >
+            {/* Honeypot: hidden from people, filled by bots, rejected by /api/register */}
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0 }}
+            />
             {/* Team Identity Header */}
             <div
               style={{

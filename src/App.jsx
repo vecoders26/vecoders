@@ -15,7 +15,7 @@ import Blog from './pages/Blog';
 import Timeline from './pages/Timeline';
 import Achievements from './pages/Achievements';
 import Register from './pages/Register';
-import Admin from './pages/Admin';
+import { env } from './lib/env';
 
 export default function App() {
   useLenis();
@@ -32,10 +32,6 @@ export default function App() {
       setSettings(s);
     };
     loadSettings();
-
-    const handleUpdate = () => loadSettings();
-    window.addEventListener('vecoders_store_update', handleUpdate);
-    return () => window.removeEventListener('vecoders_store_update', handleUpdate);
   }, []);
 
   return (
@@ -67,7 +63,7 @@ export default function App() {
           <Route path="/timeline" element={<Timeline />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin" element={<StudioRedirect />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -75,4 +71,12 @@ export default function App() {
       <Footer />
     </div>
   );
+}
+
+// Content is managed in Sanity Studio; /admin just forwards there.
+function StudioRedirect() {
+  useEffect(() => {
+    if (env.studioUrl) window.location.replace(env.studioUrl);
+  }, []);
+  return env.studioUrl ? null : <Navigate to="/" replace />;
 }
