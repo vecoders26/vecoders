@@ -1,6 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+import { Store } from '../data/store';
+import { useSettings } from '../data/settingsContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -19,6 +22,17 @@ function renderGlowLetters(text) {
 
 export default function About() {
   const patronTrackRef = useRef(null);
+  const [patrons, setPatrons] = useState([]);
+  const {
+    stats = [],
+    aboutHeroLine1,
+    aboutHeroLine2,
+    aboutIntro,
+    aboutBentoHeadline,
+    aboutBentoSubline,
+  } = useSettings();
+  // Bento grid: one stat beside the headline, one on the second row, up to three in the trio.
+  const [bentoTop, bentoLeft, ...bentoTrio] = stats;
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -33,7 +47,19 @@ export default function About() {
         { opacity: 0, y: 30 },
         { opacity: 1, y: 0, duration: 1, ease: 'power3.out', delay: 0.6 }
       );
+    });
 
+    return () => ctx.revert();
+  }, []);
+
+  useEffect(() => {
+    Store.getPatrons().then(setPatrons);
+  }, []);
+
+  // The stat slides come from the stats list in Sanity, so rebuild the pinned scroller
+  // whenever it changes (it counts the slides when created).
+  useEffect(() => {
+    const ctx = gsap.context(() => {
       // Scroll-driven sticky stats
       const items = document.querySelectorAll('.about-stat-item, .about-stat-bento');
       const card = document.getElementById('aboutStatsCard');
@@ -65,7 +91,15 @@ export default function About() {
           },
         });
       }
+    });
+    ScrollTrigger.refresh();
+    return () => ctx.revert();
+  }, [stats]);
 
+  // Patron cards start hidden in CSS and arrive after mount, so reveal them once loaded.
+  useEffect(() => {
+    if (!patrons.length) return;
+    const ctx = gsap.context(() => {
       // Patron card reveal
       gsap.to('.about-patrons__card', {
         opacity: 1,
@@ -76,9 +110,9 @@ export default function About() {
         scrollTrigger: { trigger: '.about-patrons', start: 'top 85%' },
       });
     });
-
+    ScrollTrigger.refresh();
     return () => ctx.revert();
-  }, []);
+  }, [patrons]);
 
   const scrollPatrons = (direction) => {
     if (patronTrackRef.current) {
@@ -100,17 +134,15 @@ export default function About() {
         <div className="about-page-hero__text">
           <h1 className="about-page-hero__title" id="aboutHeroTitle">
             <span className="about-title-line">
-              {renderGlowLetters('SINCE')}
+              {renderGlowLetters(aboutHeroLine1 || '')}
             </span>
             <span className="about-title-line">
-              {renderGlowLetters('2023')}
+              {renderGlowLetters(aboutHeroLine2 || '')}
             </span>
           </h1>
           <div className="about-page-hero__desc-wrap" id="aboutHeroDesc">
             <p className="about-page-hero__desc">
-              {renderGlowLetters(
-                "Established in 2022 at Valliammai Engineering College, VECODERS emerged as a visionary initiative spearheaded by a cohort of passionate technophiles intent on redefining what a student tech community could achieve. What began as a quest for innovation and collaboration has since blossomed into one of the college's foremost student-driven platforms, nurturing creativity, critical thinking, and tangible real-world impact. Today, VECODERS continues to inspire the innovators of tomorrow through hands-on workshops, hackathons, and strategic alliances with industry leaders."
-              )}
+              {renderGlowLetters(aboutIntro || '')}
             </p>
           </div>
         </div>
@@ -119,61 +151,53 @@ export default function About() {
       {/* ========== SCROLL-DRIVEN STATS ========== */}
       <section className="about-stats-section">
         <div className="about-stats-section__inner">
-          <div className="about-stats-sticky" style={{ height: '500vh' }}>
+          <div className="about-stats-sticky" style={{ height: `${Math.max(3, stats.length + 1) * 85}vh` }}>
             <div className="about-stats-sticky__card" id="aboutStatsCard">
               <div className="about-stats-sticky__glow-left" />
               <div className="about-stats-sticky__glow-right" />
 
               <div className="about-stats-sticky__content" id="aboutStatsContent">
                 {/* Stat items cycled via GSAP */}
-                <div className="about-stat-item active" data-index="0">
-                  <h2>36+ Members</h2>
-                </div>
-                <div className="about-stat-item" data-index="1">
-                  <h2>50+ Projects</h2>
-                </div>
-                <div className="about-stat-item" data-index="2">
-                  <h2>35+ Events</h2>
-                </div>
-                <div className="about-stat-item" data-index="3">
-                  <h2>8+ Domains</h2>
-                </div>
-                <div className="about-stat-item" data-index="4">
-                  <h2>8 Domains</h2>
-                </div>
+                {stats.map((stat, i) => (
+                  <div className={`about-stat-item${i === 0 ? ' active' : ''}`} data-index={i} key={i}>
+                    <h2>
+                      {stat.value} {stat.label}
+                    </h2>
+                  </div>
+                ))}
 
                 {/* Final bento grid */}
-                <div className="about-stat-bento" data-index="5">
+                <div className="about-stat-bento" data-index={stats.length}>
                   <div className="about-stat-bento__row">
                     <div className="about-stat-bento__cell about-stat-bento__cell--wide">
-                      <h2>Events, Workshops, Tech Talks,</h2>
-                      <p>Initiatives and much more...</p>
+                      <h2>{aboutBentoHeadline}</h2>
+                      <p>{aboutBentoSubline}</p>
                     </div>
-                    <div className="about-stat-bento__cell">
-                      <h2>35+</h2>
-                      <p>Active Members</p>
-                    </div>
+                    {bentoTop && (
+                      <div className="about-stat-bento__cell">
+                        <h2>{bentoTop.value}</h2>
+                        <p>{bentoTop.label}</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="about-stat-bento__row">
-                    <div className="about-stat-bento__cell">
-                      <h2>50+</h2>
-                      <p>Projects Built</p>
+                  {bentoLeft && (
+                    <div className="about-stat-bento__row">
+                      <div className="about-stat-bento__cell">
+                        <h2>{bentoLeft.value}</h2>
+                        <p>{bentoLeft.label}</p>
+                      </div>
+                      {bentoTrio.length > 0 && (
+                        <div className="about-stat-bento__cell about-stat-bento__cell--trio">
+                          {bentoTrio.slice(0, 3).map((stat, i) => (
+                            <div className="about-stat-bento__mini" key={i}>
+                              <h3>{stat.value}</h3>
+                              <p>{stat.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="about-stat-bento__cell about-stat-bento__cell--trio">
-                      <div className="about-stat-bento__mini">
-                        <h3>25+</h3>
-                        <p>Events</p>
-                      </div>
-                      <div className="about-stat-bento__mini">
-                        <h3>8</h3>
-                        <p>Domains</p>
-                      </div>
-                      <div className="about-stat-bento__mini">
-                        <h3>5+</h3>
-                        <p>Years</p>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -187,42 +211,21 @@ export default function About() {
           <h2 className="about-patrons__title">OUR PATRONS</h2>
           <div className="about-patrons__scroll-area">
             <div className="about-patrons__track" id="patronTrack" ref={patronTrackRef}>
-              <div className="about-patrons__card">
-                <div className="about-patrons__card-inner">
-                  <div className="about-patrons__card-gradient" />
-                  <div className="about-patrons__card-info">
-                    <h3>Dr. Principal</h3>
-                    <p>Chief Patron, Principal</p>
+              {patrons.map((patron) => (
+                <div className="about-patrons__card" key={patron.id}>
+                  <div className="about-patrons__card-inner">
+                    {patron.photo ? (
+                      <img className="about-patrons__card-photo" src={patron.photo} alt="" loading="lazy" />
+                    ) : (
+                      <div className="about-patrons__card-gradient" />
+                    )}
+                    <div className="about-patrons__card-info">
+                      <h3>{patron.name}</h3>
+                      {patron.role && <p>{patron.role}</p>}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="about-patrons__card">
-                <div className="about-patrons__card-inner">
-                  <div className="about-patrons__card-gradient" />
-                  <div className="about-patrons__card-info">
-                    <h3>Dr. HOD IT</h3>
-                    <p>Head of Department, IT</p>
-                  </div>
-                </div>
-              </div>
-              <div className="about-patrons__card">
-                <div className="about-patrons__card-inner">
-                  <div className="about-patrons__card-gradient" />
-                  <div className="about-patrons__card-info">
-                    <h3>Prof. Faculty Advisor</h3>
-                    <p>Faculty Coordinator — VECODERS</p>
-                  </div>
-                </div>
-              </div>
-              <div className="about-patrons__card">
-                <div className="about-patrons__card-inner">
-                  <div className="about-patrons__card-gradient" />
-                  <div className="about-patrons__card-info">
-                    <h3>Prof. Mentor</h3>
-                    <p>Technical Mentor</p>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="about-patrons__nav">

@@ -18,14 +18,13 @@ import Register from './pages/Register';
 import EventDetails from './pages/EventDetails';
 import BlogPost from './pages/BlogPost';
 import { env } from './lib/env';
+import { DEFAULT_SETTINGS } from './data/defaults';
+import { SettingsContext } from './data/settingsContext';
 
 export default function App() {
   useLenis();
 
-  const [settings, setSettings] = useState({
-    announcementActive: false,
-    announcementText: '',
-  });
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
@@ -37,6 +36,7 @@ export default function App() {
   }, []);
 
   return (
+    <SettingsContext.Provider value={settings}>
     <div className="app-root">
       <ScrollToTop />
       <NoiseOverlay />
@@ -75,6 +75,7 @@ export default function App() {
 
       <Footer />
     </div>
+    </SettingsContext.Provider>
   );
 }
 
