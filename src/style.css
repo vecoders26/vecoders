@@ -2198,16 +2198,22 @@ img {
 
 .blogs-page__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 30px;
 }
 
-/* Blog card with book-flip effect */
+/* Blog card: 16:9, flips like a book on hover (preview), click opens the reader. */
 .blogs-page__card {
     display: block;
-    text-decoration: none;
-    perspective: 1000px;
-    height: 380px;
+    aspect-ratio: 16 / 9;
+    perspective: 1200px;
+    cursor: pointer;
+    border-radius: 16px;
+    outline: none;
+}
+
+.blogs-page__card:focus-visible {
+    box-shadow: 0 0 0 2px var(--orange);
 }
 
 .blogs-page__card-inner {
@@ -2215,11 +2221,16 @@ img {
     width: 100%;
     height: 100%;
     transition: transform 0.8s var(--ease-out);
+    -webkit-transform-style: preserve-3d;
     transform-style: preserve-3d;
 }
 
-.blogs-page__card:hover .blogs-page__card-inner {
-    transform: rotateY(-180deg);
+/* Only flip where hover exists; on touch screens a tap opens the reader directly. */
+@media (hover: hover) {
+    .blogs-page__card:hover .blogs-page__card-inner,
+    .blogs-page__card:focus-visible .blogs-page__card-inner {
+        transform: rotateY(-180deg);
+    }
 }
 
 .blogs-page__card-spine {
@@ -2231,14 +2242,24 @@ img {
     background: var(--gradient-brand);
     border-radius: 2px 0 0 2px;
     z-index: 3;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
 
-.blogs-page__card-front {
+/* Both faces need the -webkit- prefix and their own 3D layer, or Safari shows the
+   front face mirrored through the back. */
+.blogs-page__card-front,
+.blogs-page__card-back {
     position: absolute;
     inset: 0;
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
     border-radius: 16px;
     overflow: hidden;
+}
+
+.blogs-page__card-front {
+    transform: rotateY(0deg) translateZ(1px);
     border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -2254,7 +2275,7 @@ img {
     left: 16px;
     right: 16px;
     font-family: var(--font-heading);
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     font-weight: 600;
     color: var(--white);
     z-index: 2;
@@ -2265,24 +2286,37 @@ img {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 50%;
+    height: 60%;
     background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
     z-index: 1;
 }
 
 .blogs-page__card-back {
-    position: absolute;
-    inset: 0;
-    backface-visibility: hidden;
-    transform: rotateY(180deg);
-    border-radius: 16px;
-    overflow: hidden;
-    background: rgba(20, 20, 20, 0.95);
+    transform: rotateY(180deg) translateZ(1px);
+    background: #141414;
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* The post image stays recognisable behind the text: a light blur plus a dark tint. */
+.blogs-page__card-back::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    background: var(--blog-bg) center / cover no-repeat;
+    filter: blur(3px);
+}
+
+.blogs-page__card-back::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(10, 10, 10, 0.72), rgba(10, 10, 10, 0.88));
+}
+
 .blogs-page__card-back-inner {
-    padding: 28px 20px;
+    position: relative;
+    z-index: 1;
+    padding: 20px 22px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -2292,24 +2326,30 @@ img {
     font-family: var(--font-heading);
     font-size: 1.1rem;
     color: var(--cream);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .blogs-page__card-back-inner p {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    flex: 1;
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: auto;
 }
 
 .blogs-page__card-readmore {
     color: var(--orange);
     font-weight: 600;
+    font-size: 0.85rem;
 }
 
 .blogs-page__card-meta-tags {
     display: flex;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-top: 12px;
 }
 
@@ -2317,8 +2357,102 @@ img {
     font-size: 0.72rem;
     color: var(--text-muted);
     padding: 4px 10px;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.06);
     border-radius: 50px;
+}
+
+/* Blog reader (opened by clicking a card) */
+.blog-reader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: rgba(0, 0, 0, 0.6);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    animation: blogReaderFade 0.2s ease-out;
+}
+
+.blog-reader__card {
+    position: relative;
+    width: min(820px, 100%);
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #121212;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    animation: blogReaderPop 0.25s var(--ease-out);
+}
+
+.blog-reader__close {
+    position: sticky;
+    top: 12px;
+    float: right;
+    margin: 12px 12px 0 0;
+    z-index: 2;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--white);
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.blog-reader__close:hover {
+    border-color: var(--orange);
+}
+
+.blog-reader__image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    margin-top: -48px;
+}
+
+.blog-reader__body {
+    padding: 24px clamp(20px, 5vw, 40px) 36px;
+}
+
+.blog-reader__body .blogs-page__card-meta-tags {
+    margin: 0 0 14px;
+}
+
+.blog-reader__title {
+    font-family: var(--font-heading);
+    font-size: clamp(1.5rem, 4vw, 2.1rem);
+    color: var(--cream);
+    line-height: 1.25;
+    margin-bottom: 14px;
+}
+
+.blog-reader__desc {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+.blog-reader__content {
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 1rem;
+    line-height: 1.8;
+    white-space: pre-line;
+}
+
+@keyframes blogReaderFade {
+    from { opacity: 0; }
+}
+
+@keyframes blogReaderPop {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
 }
 
 /* ============================================
