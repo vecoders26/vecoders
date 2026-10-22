@@ -12,5 +12,4 @@ export const env = {
   sanityProjectId: required('VITE_SANITY_PROJECT_ID'),
   sanityDataset: import.meta.env.VITE_SANITY_DATASET || 'production',
   sanityApiVersion: import.meta.env.VITE_SANITY_API_VERSION || '2025-02-19',
-  studioUrl: import.meta.env.VITE_STUDIO_URL || '',
 };

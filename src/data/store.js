@@ -8,12 +8,23 @@ const BLOGS_QUERY = `*[_type == "blog" && defined(slug.current)] | order(publish
   "image": ${IMAGE}
 }`;
 
-const EVENTS_QUERY = `*[_type == "event"] | order(coalesce(startDate, _createdAt) desc){
+// sheetId/sheetUrl are deliberately never projected: the sheet holds participants' details.
+const EVENT_FIELDS = `
   "id": _id, "slug": slug.current, name, edition, domain, domainLabel, category, isLive,
-  startDate, dateDisplay, timeDisplay, location, mode, teamSize, pricePool, entryFee,
-  badge, tagline, bannerGradient, icon,
+  startDate, dateDisplay, timeDisplay, location, mode, pricePool, entryFee,
+  badge, tagline, bannerGradient, icon, description, rules,
+  "minTeamSize": coalesce(minTeamSize, 1), "maxTeamSize": coalesce(maxTeamSize, 3),
+  "registrationOpen": isLive == true && registrationOpen != false,
   "image": ${IMAGE}
-}`;
+`;
+
+const EVENTS_QUERY = `*[_type == "event" && defined(slug.current)] | order(coalesce(startDate, _createdAt) desc){${EVENT_FIELDS}}`;
+
+const EVENT_BY_SLUG_QUERY = `*[_type == "event" && slug.current == $slug][0]{${EVENT_FIELDS}}`;
+
+// Newest first, so /register lands on the latest open event.
+const OPEN_EVENTS_QUERY = `*[_type == "event" && defined(slug.current) && isLive == true && registrationOpen != false]
+  | order(coalesce(startDate, _createdAt) desc){${EVENT_FIELDS}}`;
 
 const ACHIEVEMENTS_QUERY = `*[_type == "achievement"] | order(_createdAt desc){
   "id": _id, title, category, desc, date, badge
@@ -61,6 +72,19 @@ export const Store = {
     return fetchList(EVENTS_QUERY, 'getEvents');
   },
 
+  async getEventBySlug(slug) {
+    try {
+      return await sanity.fetch(EVENT_BY_SLUG_QUERY, { slug });
+    } catch (error) {
+      console.error('getEventBySlug error:', error);
+      return null;
+    }
+  },
+
+  getOpenEvents() {
+    return fetchList(OPEN_EVENTS_QUERY, 'getOpenEvents');
+  },
+
   getAchievements() {
     return fetchList(ACHIEVEMENTS_QUERY, 'getAchievements');
   },
@@ -85,8 +109,17 @@ export const Store = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(registration),
     });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Registration failed. Please try again.');
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body) {
+      throw new Error(body?.error || `Registration service unreachable (HTTP ${res.status}). Please try again later.`);
+    }
     return body;
   },
 };
+
+// "Solo", "2 members", "1–3 members"
+export function teamSizeLabel({ minTeamSize = 1, maxTeamSize = 3 } = {}) {
+  if (maxTeamSize <= 1) return 'Solo';
+  if (minTeamSize === maxTeamSize) return `${maxTeamSize} members`;
+  return `${minTeamSize}–${maxTeamSize} members`;
+}

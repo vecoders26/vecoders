@@ -15,7 +15,7 @@ import Blog from './pages/Blog';
 import Timeline from './pages/Timeline';
 import Achievements from './pages/Achievements';
 import Register from './pages/Register';
-import { env } from './lib/env';
+import EventDetails from './pages/EventDetails';
 
 export default function App() {
   useLenis();
@@ -59,11 +59,12 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/events" element={<Events />} />
+          <Route path="/events/:slug" element={<EventDetails />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/timeline" element={<Timeline />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/admin" element={<StudioRedirect />} />
+          <Route path="/register/:slug" element={<Register />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -73,10 +74,3 @@ export default function App() {
   );
 }
 
-// Content is managed in Sanity Studio; /admin just forwards there.
-function StudioRedirect() {
-  useEffect(() => {
-    if (env.studioUrl) window.location.replace(env.studioUrl);
-  }, []);
-  return env.studioUrl ? null : <Navigate to="/" replace />;
-}

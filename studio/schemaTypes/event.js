@@ -1,11 +1,18 @@
 import { defineField, defineType } from 'sanity';
 import { CalendarIcon } from '@sanity/icons/Calendar';
 
+// Keep in sync with HARD_MAX_MEMBERS in api/register.js
+const MAX_TEAM_SIZE = 10;
+
 export const event = defineType({
   name: 'event',
   title: 'Event',
   type: 'document',
   icon: CalendarIcon,
+  groups: [
+    { name: 'registration', title: 'Registration' },
+    { name: 'sheet', title: 'Google Sheet' },
+  ],
   fields: [
     defineField({ name: 'name', type: 'string', validation: (rule) => rule.required() }),
     defineField({
@@ -47,7 +54,46 @@ export const event = defineType({
       options: { list: ['Online', 'Offline', 'Hybrid'], layout: 'radio' },
       initialValue: 'Online',
     }),
-    defineField({ name: 'teamSize', title: 'Team size', type: 'string' }),
+    defineField({ name: 'description', type: 'text', rows: 6 }),
+    defineField({
+      name: 'rules',
+      type: 'array',
+      of: [{ type: 'string' }],
+      description: 'One rule per item. Shown on the event page and the registration form.',
+    }),
+    defineField({
+      name: 'registrationOpen',
+      title: 'Registration open',
+      description: 'Accept registrations for this event. The global switch in Site Settings also applies.',
+      type: 'boolean',
+      group: 'registration',
+      initialValue: true,
+    }),
+    defineField({
+      name: 'minTeamSize',
+      title: 'Minimum team size',
+      type: 'number',
+      group: 'registration',
+      initialValue: 1,
+      validation: (rule) => rule.required().integer().min(1).max(MAX_TEAM_SIZE),
+    }),
+    defineField({
+      name: 'maxTeamSize',
+      title: 'Maximum team size',
+      description: 'Set to 1 for solo events.',
+      type: 'number',
+      group: 'registration',
+      initialValue: 3,
+      validation: (rule) =>
+        rule
+          .required()
+          .integer()
+          .min(1)
+          .max(MAX_TEAM_SIZE)
+          .custom((max, { document }) =>
+            document?.minTeamSize && max < document.minTeamSize ? 'Must be at least the minimum team size' : true,
+          ),
+    }),
     defineField({ name: 'pricePool', title: 'Prize pool', type: 'string' }),
     defineField({ name: 'entryFee', title: 'Entry fee', type: 'string', initialValue: 'Free' }),
     defineField({ name: 'badge', type: 'string' }),
@@ -61,6 +107,15 @@ export const event = defineType({
       description: 'Used only when no image is uploaded above.',
       type: 'url',
     }),
+    defineField({
+      name: 'sheetUrl',
+      title: 'Registrations sheet',
+      description: 'Created automatically when the event is first published.',
+      type: 'url',
+      group: 'sheet',
+      readOnly: true,
+    }),
+    defineField({ name: 'sheetId', title: 'Sheet ID', type: 'string', group: 'sheet', readOnly: true, hidden: true }),
   ],
   orderings: [{ title: 'Start date', name: 'startDateDesc', by: [{ field: 'startDate', direction: 'desc' }] }],
   preview: { select: { title: 'name', subtitle: 'dateDisplay', media: 'image' } },

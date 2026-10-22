@@ -1,30 +1,16 @@
-import { createClient } from '@sanity/client';
+import { contentClient, registrationsClient, sanityConfigured } from './_lib/sanity.js';
+import { appendRegistration, createEventSheet, sheetsConfigured } from './_lib/sheets.js';
 
-// Server-only: these env vars are set in Vercel (or .env for `vercel dev`) and never reach the browser.
-const { SANITY_PROJECT_ID, SANITY_WRITE_TOKEN } = process.env;
-const API_VERSION = process.env.SANITY_API_VERSION || '2025-02-19';
-const CONTENT_DATASET = process.env.SANITY_CONTENT_DATASET || 'production';
-const REGISTRATIONS_DATASET = process.env.SANITY_REGISTRATIONS_DATASET || 'registrations';
-
-const MAX_MEMBERS = 3;
+// Events without min/max set fall back to the Studio defaults (1–3). Absolute cap regardless of event settings. Keep in sync with MAX_TEAM_SIZE in studio/schemaTypes/event.js.
+const HARD_MAX_MEMBERS = 10;
 const MAX_LEN = 120;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9\s-]{7,15}$/;
+const REGISTER_NO_RE = /^[A-Z0-9-]{4,20}$/;
 
-const contentClient = createClient({
-  projectId: SANITY_PROJECT_ID,
-  dataset: CONTENT_DATASET,
-  apiVersion: API_VERSION,
-  useCdn: false,
-});
-
-const registrationsClient = createClient({
-  projectId: SANITY_PROJECT_ID,
-  dataset: REGISTRATIONS_DATASET,
-  apiVersion: API_VERSION,
-  token: SANITY_WRITE_TOKEN,
-  useCdn: false,
-});
+const EVENT_QUERY = `*[_type == "event" && slug.current == $slug][0]{
+  _id, name, isLive, registrationOpen, minTeamSize, maxTeamSize, sheetId
+}`;
 
 // Best-effort per-instance rate limit. Serverless instances don't share memory,
 // so swap for Vercel KV / Upstash if abuse becomes a real problem.
@@ -52,11 +38,12 @@ function cleanString(value, { required = false, max = MAX_LEN } = {}) {
   return trimmed;
 }
 
-function validate(body) {
-  if (!body || typeof body !== 'object') return { error: 'Invalid request body.' };
+function validate(body, event) {
+  const min = Math.max(1, event.minTeamSize || 1);
+  const max = Math.min(HARD_MAX_MEMBERS, Math.max(min, event.maxTeamSize || 3));
   const { members } = body;
-  if (!Array.isArray(members) || members.length < 1 || members.length > MAX_MEMBERS) {
-    return { error: `A team must have between 1 and ${MAX_MEMBERS} members.` };
+  if (!Array.isArray(members) || members.length < min || members.length > max) {
+    return { error: min === max ? `This event needs exactly ${min} member${min > 1 ? 's' : ''}.` : `This event needs between ${min} and ${max} members.` };
   }
 
   try {
@@ -66,11 +53,13 @@ function validate(body) {
         _type: 'member',
         role: idx === 0 ? 'Team Lead / Member 1' : `Member ${idx + 1}`,
         name: cleanString(m?.name, { required: true }),
+        registerNumber: cleanString(m?.registerNumber, { required: true, max: 20 }).toUpperCase(),
         email: cleanString(m?.email, { required: true }).toLowerCase(),
         department: cleanString(m?.department),
         year: cleanString(m?.year, { max: 40 }),
         phone: cleanString(m?.phone, { required: true, max: 20 }),
       };
+      if (!REGISTER_NO_RE.test(member.registerNumber)) throw new Error(`Member ${idx + 1} has an invalid register number.`);
       if (!EMAIL_RE.test(member.email)) throw new Error(`Member ${idx + 1} has an invalid email.`);
       if (!PHONE_RE.test(member.phone)) throw new Error(`Member ${idx + 1} has an invalid phone number.`);
       return member;
@@ -78,14 +67,16 @@ function validate(body) {
 
     return {
       value: {
-        event: cleanString(body.event) || 'General',
-        teamName: cleanString(body.teamName) || 'Solo',
+        event: event.name,
+        eventSlug: body.eventSlug,
+        eventId: event._id,
+        teamName: cleanString(body.teamName) || cleanMembers[0].name,
         members: cleanMembers,
       },
     };
   } catch (err) {
     const known = err.message.startsWith('Member');
-    return { error: known ? err.message : 'Please fill in every required field (name, email, phone).' };
+    return { error: known ? err.message : 'Please fill in every required field (name, register number, email, phone).' };
   }
 }
 
@@ -100,7 +91,7 @@ async function createRegistration(value) {
     );
     const registrationId = `REG-${year}-${String(count + 1 + attempt).padStart(3, '0')}`;
     try {
-      await registrationsClient.create({
+      return await registrationsClient.create({
         _id: `registration-${registrationId}`,
         _type: 'registration',
         registrationId,
@@ -108,12 +99,22 @@ async function createRegistration(value) {
         status: 'Pending',
         ...value,
       });
-      return registrationId;
     } catch (err) {
       if (err.statusCode !== 409) throw err;
     }
   }
   throw new Error('Could not allocate a registration ID');
+}
+
+// Sanity holds the canonical copy, so a Sheets failure is logged rather than shown to the user.
+async function syncToSheet(event, registration) {
+  if (!sheetsConfigured) return;
+  try {
+    const sheetId = event.sheetId || (await createEventSheet(event)).sheetId;
+    await appendRegistration(sheetId, registration);
+  } catch (err) {
+    console.error(`register: sheet sync failed for ${registration.registrationId}`, err);
+  }
 }
 
 export default async function handler(req, res) {
@@ -122,12 +123,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  if (!SANITY_PROJECT_ID || !SANITY_WRITE_TOKEN) {
+  if (!sanityConfigured) {
     console.error('register: missing SANITY_PROJECT_ID or SANITY_WRITE_TOKEN');
     return res.status(500).json({ error: 'Registration is temporarily unavailable.' });
   }
 
-  const body = req.body || {};
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
 
   // Honeypot: real users never see or fill this field.
   if (body.website) return res.status(200).json({ id: 'REG-OK' });
@@ -137,17 +138,26 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many registrations from this network. Try again later.' });
   }
 
-  const { value, error } = validate(body);
-  if (error) return res.status(400).json({ error });
+  if (typeof body.eventSlug !== 'string' || !body.eventSlug) {
+    return res.status(400).json({ error: 'Please choose an event to register for.' });
+  }
 
   try {
-    const settings = await contentClient.fetch('*[_id == "siteSettings"][0]{registrationsOpen}');
-    if (settings?.registrationsOpen === false) {
-      return res.status(403).json({ error: 'Registrations are currently closed.' });
+    const [settings, event] = await Promise.all([
+      contentClient.fetch('*[_id == "siteSettings"][0]{registrationsOpen}'),
+      contentClient.fetch(EVENT_QUERY, { slug: body.eventSlug }),
+    ]);
+    if (!event) return res.status(404).json({ error: 'That event no longer exists.' });
+    if (settings?.registrationsOpen === false || !event.isLive || event.registrationOpen === false) {
+      return res.status(403).json({ error: 'Registrations for this event are closed.' });
     }
 
-    const id = await createRegistration(value);
-    return res.status(201).json({ id });
+    const { value, error } = validate(body, event);
+    if (error) return res.status(400).json({ error });
+
+    const registration = await createRegistration(value);
+    await syncToSheet(event, registration);
+    return res.status(201).json({ id: registration.registrationId });
   } catch (err) {
     console.error('register: failed to save registration', err);
     return res.status(500).json({ error: 'Something went wrong saving your registration. Please try again.' });

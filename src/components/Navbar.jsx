@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { env } from '../lib/env';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -74,17 +73,6 @@ export default function Navbar() {
               <path d="M432 320h-32a16 16 0 0 0-16 16v112H64V128h144a16 16 0 0 0 16-16V80a16 16 0 0 0-16-16H48A48 48 0 0 0 0 112v352a48 48 0 0 0 48 48h352a48 48 0 0 0 48-48V336a16 16 0 0 0-16-16zM488 0H360c-21.37 0-32 25.91-17 41l35.73 35.73L135 320.37a24 24 0 0 0 0 34L157.67 377a24 24 0 0 0 34 0l243.61-243.68L471 169c15 15 41 4.5 41-17V24a24 24 0 0 0-24-24z" />
             </svg>
           </button>
-          <a href={env.studioUrl || '/admin'} target="_blank" rel="noopener noreferrer">
-            <button className="btn-glass btn-admin-nav" id="btnAdminNav">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-              <span>Admin</span>
-            </button>
-          </a>
           <Link to="/register">
             <button className="btn-glass" id="btnRegister">Register</button>
           </Link>
@@ -108,7 +96,6 @@ export default function Navbar() {
         <Link to="/blog" onClick={closeMobileMenu}>Blog</Link>
         <Link to="/timeline" onClick={closeMobileMenu}>Timeline</Link>
         <Link to="/achievements" onClick={closeMobileMenu}>Achievements</Link>
-        <a href={env.studioUrl || '/admin'} target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu} style={{ color: 'var(--orange)', fontWeight: '600' }}>⚡ Admin Dashboard</a>
         <Link to="/register" className="btn-primary" style={{ marginTop: '12px', justifyContent: 'center' }} onClick={closeMobileMenu}>
           Register for Events
         </Link>

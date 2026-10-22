@@ -1,21 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Store } from '../data/store';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Store, teamSizeLabel } from '../data/store';
 import { renderGlowLetters } from '../components/GlowText';
+import { EventDescription, EventRules } from '../components/EventInfo';
+
+const memberRole = (idx) => (idx === 0 ? 'Team Lead / Member 1' : `Member ${idx + 1}`);
+
+const blankMember = (idx) => ({
+  id: `${Date.now()}-${idx}`,
+  role: memberRole(idx),
+  name: '',
+  registerNumber: '',
+  email: '',
+  department: '',
+  year: '1st Year',
+  phone: '',
+});
+
+const initialMembers = (event) => Array.from({ length: Math.max(1, event?.minTeamSize || 1) }, (_, i) => blankMember(i));
+
+const labelStyle = { display: 'block', fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' };
+const inputStyle = { width: '100%', padding: '12px 14px', background: 'rgba(0, 0, 0, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '10px', color: 'var(--white)', fontSize: '0.9rem', fontFamily: 'var(--font-body)', outline: 'none' };
 
 export default function Register() {
+  const { slug } = useParams();
+  const navigate = useNavigate();
+
+  const [event, setEvent] = useState(undefined); // undefined = loading, null = not found
+  const [openEvents, setOpenEvents] = useState(undefined);
   const [teamName, setTeamName] = useState('');
-  const [members, setMembers] = useState([
-    {
-      id: 1,
-      role: 'Team Lead / Member 1',
-      name: '',
-      email: '',
-      department: '',
-      year: '1st Year',
-      phone: '',
-    },
-  ]);
+  const [members, setMembers] = useState(() => initialMembers(null));
 
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -25,12 +39,28 @@ export default function Register() {
   });
 
   useEffect(() => {
-    const loadSettings = async () => {
-      const s = await Store.getSettings();
-      setSettings(s);
-    };
-    loadSettings();
+    Store.getSettings().then(setSettings);
+    Store.getOpenEvents().then(setOpenEvents);
   }, []);
+
+  useEffect(() => {
+    if (!slug) return;
+    let cancelled = false;
+    setEvent(undefined);
+    Store.getEventBySlug(slug).then((ev) => {
+      if (cancelled) return;
+      setEvent(ev);
+      setMembers(initialMembers(ev));
+      setTeamName('');
+      setSubmitted(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  const minMembers = Math.max(1, event?.minTeamSize || 1);
+  const maxMembers = Math.max(minMembers, event?.maxTeamSize || 1);
 
   const departments = [
     'Computer Science and Engineering (CSE)',
@@ -47,39 +77,18 @@ export default function Register() {
   const years = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Postgraduate'];
 
   const handleMemberChange = (index, field, value) => {
-    const updated = [...members];
-    updated[index][field] = value;
-    setMembers(updated);
+    setMembers((prev) => prev.map((m, idx) => (idx === index ? { ...m, [field]: value } : m)));
   };
 
   const addMember = () => {
-    if (members.length >= 3) {
-      alert('Maximum of 2 extra members (3 members total) allowed per team.');
-      return;
-    }
-    const newMemberNumber = members.length + 1;
-    setMembers([
-      ...members,
-      {
-        id: Date.now(),
-        role: `Member ${newMemberNumber}`,
-        name: '',
-        email: '',
-        department: '',
-        year: '1st Year',
-        phone: '',
-      },
-    ]);
+    if (members.length >= maxMembers) return;
+    setMembers([...members, blankMember(members.length)]);
   };
 
   const removeMember = (index) => {
-    if (members.length <= 1) return;
+    if (members.length <= minMembers) return;
     const updated = members.filter((_, idx) => idx !== index);
-    const renumbered = updated.map((m, idx) => ({
-      ...m,
-      role: idx === 0 ? 'Team Lead / Member 1' : `Member ${idx + 1}`,
-    }));
-    setMembers(renumbered);
+    setMembers(updated.map((m, idx) => ({ ...m, role: memberRole(idx) })));
   };
 
   const handleSubmit = async (e) => {
@@ -92,8 +101,16 @@ export default function Register() {
 
     try {
       await Store.addRegistration({
-        teamName: teamName.trim() || (members[0] && members[0].name ? `${members[0].name}'s Team` : 'Team Alpha'),
-        members: members,
+        eventSlug: event.slug,
+        teamName: maxMembers > 1 ? teamName.trim() || `${members[0].name.trim()}'s Team` : '',
+        members: members.map(({ name, registerNumber, email, department, year, phone }) => ({
+          name,
+          registerNumber,
+          email,
+          department,
+          year,
+          phone,
+        })),
         website: honeypot,
       });
       setSubmitted(true);
@@ -107,18 +124,22 @@ export default function Register() {
   const resetForm = () => {
     setSubmitted(false);
     setTeamName('');
-    setMembers([
-      {
-        id: 1,
-        role: 'Team Lead / Member 1',
-        name: '',
-        email: '',
-        department: '',
-        year: '1st Year',
-        phone: '',
-      },
-    ]);
+    setMembers(initialMembers(event));
   };
+
+  // /register with no event: go to the latest open event.
+  if (!slug) {
+    if (openEvents === undefined) return <RegisterStatus loading />;
+    if (openEvents.length === 0) return <RegisterStatus message="There are no events open for registration right now." />;
+    return <Navigate to={`/register/${openEvents[0].slug}`} replace />;
+  }
+  if (event === undefined) return <RegisterStatus loading />;
+  if (event === null) return <RegisterStatus message="We couldn't find that event." />;
+  if (!event.registrationOpen || settings.registrationsOpen === false) {
+    return <RegisterStatus message={`Registrations for ${event.name} are closed.`} />;
+  }
+
+  const otherOpenEvents = (openEvents || []).filter((ev) => ev.slug !== event.slug);
 
   return (
     <div className="register-page" style={{ paddingTop: '100px', minHeight: '100vh', paddingBottom: '80px' }}>
@@ -144,6 +165,56 @@ export default function Register() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '580px', margin: '0 auto' }}>
             Register your team or apply individually for upcoming hackathons, tech workshops, and community access.
           </p>
+        </div>
+
+        {/* Selected event */}
+        <div
+          style={{
+            background: 'rgba(239, 101, 34, 0.06)',
+            border: '1px solid rgba(239, 101, 34, 0.3)',
+            borderRadius: '18px',
+            padding: '24px',
+            marginBottom: '32px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+            <div>
+              <span style={labelStyle}>Registering for</span>
+              <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', color: 'var(--cream)', margin: '0 0 6px' }}>
+                {event.icon} {event.name}
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+                {[event.dateDisplay, event.mode, teamSizeLabel(event)].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            {otherOpenEvents.length > 0 && (
+              <select
+                aria-label="Switch event"
+                value={event.slug}
+                onChange={(e) => navigate(`/register/${e.target.value}`)}
+                style={{ ...inputStyle, width: 'auto', background: '#0d0d0d' }}
+              >
+                <option value={event.slug}>{event.name}</option>
+                {otherOpenEvents.map((ev) => (
+                  <option key={ev.slug} value={ev.slug}>{ev.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          {(event.description || event.rules?.length > 0) && (
+            <details style={{ marginTop: '18px' }}>
+              <summary style={{ cursor: 'pointer', color: 'var(--orange)', fontWeight: '600', fontSize: '0.9rem' }}>
+                Event details & rules
+              </summary>
+              <div style={{ marginTop: '16px' }}>
+                <EventDescription event={event} />
+                <EventRules event={event} />
+              </div>
+            </details>
+          )}
+          <Link to={`/events/${event.slug}`} style={{ display: 'inline-block', marginTop: '12px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            View full event page →
+          </Link>
         </div>
 
         {submitted ? (
@@ -193,8 +264,8 @@ export default function Register() {
                 margin: '0 auto 30px',
               }}
             >
-              Welcome to the VECODERS ecosystem! We have sent a confirmation email with onboarding details to{' '}
-              <strong style={{ color: 'var(--orange)' }}>{members[0].email || 'your registered email'}</strong>.
+              You're registered for <strong style={{ color: 'var(--orange)' }}>{event.name}</strong>. We'll reach out at{' '}
+              <strong style={{ color: 'var(--orange)' }}>{members[0].email || 'your registered email'}</strong> with next steps.
             </p>
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link to="/events" className="btn-primary">
@@ -229,6 +300,7 @@ export default function Register() {
               style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0 }}
             />
             {/* Team Identity Header */}
+            {maxMembers > 1 && (
             <div
               style={{
                 background: 'rgba(56, 189, 248, 0.05)',
@@ -253,10 +325,11 @@ export default function Register() {
                   onChange={(e) => setTeamName(e.target.value)}
                 />
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '6px', margin: 0 }}>
-                  If applying as an individual, you can leave this blank or provide a handle.
+                  Leave blank to use the team lead's name.
                 </p>
               </div>
             </div>
+            )}
 
             {/* Members Section */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: '36px' }}>
@@ -308,7 +381,7 @@ export default function Register() {
                       </span>
                       {member.role}
                     </h3>
-                    {index > 0 && (
+                    {index >= minMembers && (
                       <button
                         type="button"
                         onClick={() => removeMember(index)}
@@ -348,6 +421,23 @@ export default function Register() {
                         value={member.name}
                         onChange={(e) => handleMemberChange(index, 'name', e.target.value)}
                         style={{ width: '100%', padding: '12px 14px', background: 'rgba(0, 0, 0, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '10px', color: 'var(--white)', fontSize: '0.9rem', fontFamily: 'var(--font-body)', outline: 'none' }}
+                      />
+                    </div>
+
+                    {/* Register Number */}
+                    <div>
+                      <label style={labelStyle}>
+                        Register Number *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. 312322104001"
+                        pattern="[A-Za-z0-9\-]{4,20}"
+                        title="4–20 letters, digits or hyphens"
+                        value={member.registerNumber}
+                        onChange={(e) => handleMemberChange(index, 'registerNumber', e.target.value)}
+                        style={inputStyle}
                       />
                     </div>
 
@@ -419,8 +509,8 @@ export default function Register() {
               ))}
             </div>
 
-            {/* Additional Member Button (Max 2 extra members) */}
-            {members.length < 3 && (
+            {/* Additional member button, up to the event's maximum team size */}
+            {members.length < maxMembers && (
               <div style={{ marginBottom: '32px' }}>
                 <button
                   type="button"
@@ -445,7 +535,7 @@ export default function Register() {
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 101, 34, 0.15)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 101, 34, 0.08)'; }}
                 >
-                  <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>+</span> Add Member {members.length + 1}
+                  <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>+</span> Add Member {members.length + 1} (max {maxMembers})
                 </button>
               </div>
             )}
@@ -468,6 +558,26 @@ export default function Register() {
               </button>
             </div>
           </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RegisterStatus({ loading, message }) {
+  return (
+    <div className="register-page" style={{ paddingTop: '140px', minHeight: '100vh', paddingBottom: '80px', textAlign: 'center' }}>
+      <div className="container" style={{ maxWidth: '640px' }}>
+        {loading ? (
+          <div style={{ color: 'var(--text-muted)' }}>
+            <div className="admin-login-spinner" style={{ width: '32px', height: '32px', margin: '0 auto 16px' }} />
+            Loading registration...
+          </div>
+        ) : (
+          <>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', marginBottom: '24px' }}>{message}</p>
+            <Link to="/events" className="btn-primary">Browse events</Link>
+          </>
         )}
       </div>
     </div>
