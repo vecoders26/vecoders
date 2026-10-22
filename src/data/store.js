@@ -3,10 +3,23 @@ import { sanity } from './sanityClient';
 // GROQ projections return the camelCase shape the pages already use.
 const IMAGE = 'coalesce(image.asset->url + "?w=1200&auto=format", imageUrl)';
 
-const BLOGS_QUERY = `*[_type == "blog" && defined(slug.current)] | order(publishedAt desc){
-  "id": _id, title, desc, content, author, category, readTime, featured, publishedAt,
+const BLOG_FIELDS = `
+  "id": _id, "slug": slug.current, title, desc, content, author, category, readTime, featured, publishedAt,
   "image": ${IMAGE}
-}`;
+`;
+
+const BLOGS_QUERY = `*[_type == "blog" && defined(slug.current)] | order(publishedAt desc){${BLOG_FIELDS}}`;
+
+const BLOG_BY_SLUG_QUERY = `*[_type == "blog" && slug.current == $slug][0]{${BLOG_FIELDS}}`;
+
+function withDisplayDate(b) {
+  const published = b.publishedAt ? new Date(b.publishedAt) : null;
+  return {
+    ...b,
+    date: published?.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) || '',
+    time: published?.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) || '',
+  };
+}
 
 // sheetId/sheetUrl are deliberately never projected: the sheet holds participants' details.
 const EVENT_FIELDS = `
@@ -58,14 +71,17 @@ async function fetchList(query, label) {
 export const Store = {
   async getBlogs() {
     const blogs = await fetchList(BLOGS_QUERY, 'getBlogs');
-    return blogs.map((b) => {
-      const published = b.publishedAt ? new Date(b.publishedAt) : null;
-      return {
-        ...b,
-        date: published?.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) || '',
-        time: published?.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) || '',
-      };
-    });
+    return blogs.map(withDisplayDate);
+  },
+
+  async getBlogBySlug(slug) {
+    try {
+      const blog = await sanity.fetch(BLOG_BY_SLUG_QUERY, { slug });
+      return blog ? withDisplayDate(blog) : null;
+    } catch (error) {
+      console.error('getBlogBySlug error:', error);
+      return null;
+    }
   },
 
   getEvents() {
