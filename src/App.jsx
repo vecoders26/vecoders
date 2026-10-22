@@ -16,6 +16,7 @@ import Timeline from './pages/Timeline';
 import Achievements from './pages/Achievements';
 import Register from './pages/Register';
 import EventDetails from './pages/EventDetails';
+import BlogPost from './pages/BlogPost';
 import { env } from './lib/env';
 
 export default function App() {
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/events" element={<Events />} />
           <Route path="/events/:slug" element={<EventDetails />} />
           <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/timeline" element={<Timeline />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/register" element={<Register />} />
