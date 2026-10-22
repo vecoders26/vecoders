@@ -14,6 +14,12 @@
  * Because the script runs as its owner, every sheet it creates is owned by that account.
  */
 
+// Opening the web app URL in a browser sends a GET. Answer it so it's a quick health
+// check instead of a "Script function not found" failure; it never touches any sheet.
+function doGet() {
+  return json_({ ok: true, message: 'VECODERS sheets bridge is running. Use POST.' });
+}
+
 function doPost(e) {
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
@@ -21,7 +27,7 @@ function doPost(e) {
     if (!secret || body.secret !== secret) return json_({ ok: false, error: 'unauthorized' });
 
     if (body.action === 'createSheet') return json_(createSheet_(body));
-    if (body.action === 'appendRow') return json_(appendRow_(body));
+    if (body.action === 'appendRows') return json_(appendRows_(body));
     return json_({ ok: false, error: 'unknown action' });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -32,11 +38,7 @@ function createSheet_(body) {
   var ss = SpreadsheetApp.create('VECODERS – ' + (body.title || 'Event') + ' Registrations');
   var sheet = ss.getSheets()[0];
   sheet.setName('Registrations');
-  var headers = body.headers || [];
-  if (headers.length) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-    sheet.setFrozenRows(1);
-  }
+  writeHeaders_(sheet, body.headers || []);
 
   var folderId = PropertiesService.getScriptProperties().getProperty('FOLDER_ID');
   if (folderId) DriveApp.getFileById(ss.getId()).moveTo(DriveApp.getFolderById(folderId));
@@ -44,22 +46,32 @@ function createSheet_(body) {
   return { ok: true, id: ss.getId(), url: ss.getUrl() };
 }
 
-function appendRow_(body) {
+// One row per team member. Every cell is stored as plain text so register numbers
+// and phone numbers keep their leading zeros and never turn into 3.12E+11.
+function appendRows_(body) {
+  var rows = body.rows || [];
+  if (!rows.length) return { ok: true };
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     var sheet = SpreadsheetApp.openById(body.id).getSheets()[0];
-    var row = body.row || [];
-    // Teams larger than the original header (event max raised later) get extra header cells.
-    var headers = body.headers || [];
-    if (headers.length > sheet.getLastColumn()) {
-      sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-    }
-    sheet.appendRow(row);
+    writeHeaders_(sheet, body.headers || []);
+    var range = sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length);
+    range.setNumberFormat('@').setValues(rows);
+    // A light divider under each team keeps teams visually grouped.
+    range.offset(rows.length - 1, 0, 1).setBorder(null, null, true, null, null, null, '#bbbbbb', SpreadsheetApp.BorderStyle.SOLID);
     return { ok: true };
   } finally {
     lock.releaseLock();
   }
+}
+
+function writeHeaders_(sheet, headers) {
+  if (!headers.length) return;
+  var current = sheet.getRange(1, 1, 1, headers.length).getDisplayValues()[0];
+  if (current.join('|') === headers.join('|')) return;
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#f3f3f3');
+  sheet.setFrozenRows(1);
 }
 
 function json_(obj) {
