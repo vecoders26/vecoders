@@ -64,7 +64,7 @@ Admins sign in to Sanity Studio with their Sanity account. Invite people at sani
 
 Deploy the Studio with `npm --prefix studio run deploy`.
 
-The site has no admin link. Admins open the Studio directly at https://vecoders.sanity.studio.
+The site has no admin link. Admins open the Studio at https://vecoders.sanity.studio, or go to `/studio` on the site, which redirects there.
 
 ## Google Sheets
 

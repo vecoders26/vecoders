@@ -1,3 +1,7 @@
 {
+  "redirects": [
+    { "source": "/studio", "destination": "https://vecoders.sanity.studio", "permanent": false },
+    { "source": "/studio/:path*", "destination": "https://vecoders.sanity.studio/:path*", "permanent": false }
+  ],
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
 }
