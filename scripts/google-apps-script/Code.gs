@@ -14,6 +14,12 @@
  * Because the script runs as its owner, every sheet it creates is owned by that account.
  */
 
+// Opening the web app URL in a browser sends a GET. Answer it so it's a quick health
+// check instead of a "Script function not found" failure; it never touches any sheet.
+function doGet() {
+  return json_({ ok: true, message: 'VECODERS sheets bridge is running. Use POST.' });
+}
+
 function doPost(e) {
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
