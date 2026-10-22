@@ -16,6 +16,7 @@ import Timeline from './pages/Timeline';
 import Achievements from './pages/Achievements';
 import Register from './pages/Register';
 import EventDetails from './pages/EventDetails';
+import { env } from './lib/env';
 
 export default function App() {
   useLenis();
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/register" element={<Register />} />
           <Route path="/register/:slug" element={<Register />} />
+          <Route path="/studio/*" element={<StudioRedirect />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -74,3 +76,11 @@ export default function App() {
   );
 }
 
+// Content is managed in the hosted Sanity Studio. In production vercel.json redirects
+// /studio before the app loads; this covers `npm run dev` and in-app navigation.
+function StudioRedirect() {
+  useEffect(() => {
+    window.location.replace(env.studioUrl);
+  }, []);
+  return null;
+}
