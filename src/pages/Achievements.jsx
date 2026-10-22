@@ -15,9 +15,6 @@ export default function Achievements() {
 
   useEffect(() => {
     fetchAchievements();
-    const handleUpdate = () => fetchAchievements();
-    window.addEventListener('vecoders_store_update', handleUpdate);
-    return () => window.removeEventListener('vecoders_store_update', handleUpdate);
   }, []);
 
   return (

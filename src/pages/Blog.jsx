@@ -14,9 +14,6 @@ export default function Blog() {
 
   useEffect(() => {
     fetchBlogs();
-    const handleUpdate = () => fetchBlogs();
-    window.addEventListener('vecoders_store_update', handleUpdate);
-    return () => window.removeEventListener('vecoders_store_update', handleUpdate);
   }, []);
 
   return (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Store } from '../data/store';
+import { Store, teamSizeLabel } from '../data/store';
 import { renderGlowLetters } from '../components/GlowText';
 
 export default function Events() {
@@ -17,9 +17,6 @@ export default function Events() {
 
   useEffect(() => {
     fetchEvents();
-    const handleUpdate = () => fetchEvents();
-    window.addEventListener('vecoders_store_update', handleUpdate);
-    return () => window.removeEventListener('vecoders_store_update', handleUpdate);
   }, []);
 
   const filteredEvents = useMemo(() => {
@@ -134,13 +131,16 @@ export default function Events() {
                     <p className="events-page__card-tagline">{ev.tagline}</p>
                     <div className="events-page__card-meta">
                       <span>📅 {ev.dateDisplay}</span>
-                      <span>💰 {ev.pricePool}</span>
+                      {ev.pricePool && <span>💰 {ev.pricePool}</span>}
+                      <span>👥 {teamSizeLabel(ev)}</span>
                     </div>
                     <div className="events-page__card-actions">
-                      <Link to="/register" className="btn-primary events-page__card-btn">
-                        Register
-                      </Link>
-                      <Link to="/events" className="btn-outline events-page__card-btn">
+                      {ev.registrationOpen && (
+                        <Link to={`/register/${ev.slug}`} className="btn-primary events-page__card-btn">
+                          Register
+                        </Link>
+                      )}
+                      <Link to={`/events/${ev.slug}`} className="btn-outline events-page__card-btn">
                         Details
                       </Link>
                     </div>

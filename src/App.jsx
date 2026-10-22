@@ -15,7 +15,7 @@ import Blog from './pages/Blog';
 import Timeline from './pages/Timeline';
 import Achievements from './pages/Achievements';
 import Register from './pages/Register';
-import Admin from './pages/Admin';
+import EventDetails from './pages/EventDetails';
 
 export default function App() {
   useLenis();
@@ -32,10 +32,6 @@ export default function App() {
       setSettings(s);
     };
     loadSettings();
-
-    const handleUpdate = () => loadSettings();
-    window.addEventListener('vecoders_store_update', handleUpdate);
-    return () => window.removeEventListener('vecoders_store_update', handleUpdate);
   }, []);
 
   return (
@@ -63,11 +59,12 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/events" element={<Events />} />
+          <Route path="/events/:slug" element={<EventDetails />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/timeline" element={<Timeline />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/register/:slug" element={<Register />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -76,3 +73,4 @@ export default function App() {
     </div>
   );
 }
+
