@@ -12,6 +12,9 @@
  * so the same URL keeps working.
  *
  * Because the script runs as its owner, every sheet it creates is owned by that account.
+ * New sheets are shared as "Anyone with the link can view". Note that the link is stored on
+ * the event in Sanity's public dataset, so participants' details are effectively public.
+ * Run shareExistingSheets() once from the editor to apply the same sharing to older sheets.
  */
 
 // Opening the web app URL in a browser sends a GET. Answer it so it's a quick health
@@ -40,8 +43,11 @@ function createSheet_(body) {
   sheet.setName('Registrations');
   writeHeaders_(sheet, body.headers || []);
 
+  var file = DriveApp.getFileById(ss.getId());
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
   var folderId = PropertiesService.getScriptProperties().getProperty('FOLDER_ID');
-  if (folderId) DriveApp.getFileById(ss.getId()).moveTo(DriveApp.getFolderById(folderId));
+  if (folderId) file.moveTo(DriveApp.getFolderById(folderId));
 
   return { ok: true, id: ss.getId(), url: ss.getUrl() };
 }
@@ -72,6 +78,19 @@ function writeHeaders_(sheet, headers) {
   if (current.join('|') === headers.join('|')) return;
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#f3f3f3');
   sheet.setFrozenRows(1);
+}
+
+// One-off: select this function in the editor's toolbar and click Run. It gives every
+// registrations sheet this script has created link-view access, and logs each one.
+function shareExistingSheets() {
+  var files = DriveApp.searchFiles(
+    "title contains 'VECODERS – ' and title contains ' Registrations' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+  );
+  while (files.hasNext()) {
+    var file = files.next();
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    Logger.log('Shared: ' + file.getName() + ' ' + file.getUrl());
+  }
 }
 
 function json_(obj) {
